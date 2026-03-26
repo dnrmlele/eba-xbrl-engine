@@ -22,9 +22,12 @@ st.markdown("""<style>
 .eba-header h1{color:white;margin:0;font-size:1.7rem}
 .eba-header p{color:#b8d0ff;margin:.3rem 0 0;font-size:.9rem}
 .card{background:#f0f6ff;border-left:4px solid #003399;padding:.9rem 1.1rem;
-  border-radius:6px;margin:.4rem 0;font-size:.88rem}
+  border-radius:6px;margin:.4rem 0;font-size:.88rem;color:#1a1a2e !important}
+.card *{color:#1a1a2e !important}
+.card code{background:#dce8ff !important;color:#003399 !important;
+  padding:1px 5px;border-radius:3px}
 .ccy-pill{display:inline-block;padding:3px 10px;border-radius:12px;font-size:.82rem;
-  font-weight:700;margin:3px;border:1.5px solid}
+  font-weight:700;margin:3px;border:1.5px solid;background:white}
 .badge{display:inline-block;background:#003399;color:white;padding:1px 7px;
   border-radius:4px;font-size:.78rem;font-weight:700;margin:2px}
 .filetree{font-family:monospace;background:#1e1e1e;color:#d4d4d4;padding:1rem;
