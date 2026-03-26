@@ -5,6 +5,7 @@ from datetime import date
 from collections import defaultdict
 
 sys.path.insert(0, os.path.dirname(__file__))
+from engine.validator      import EBAPackageValidator
 from engine.reader         import EBAExcelReader
 from engine.generator      import XBRLCSVGenerator
 from engine.sample_creator import create_sample_workbook
@@ -64,7 +65,7 @@ with st.sidebar:
 """)
 
 # ── TABS ──────────────────────────────────────────────────────────────────────
-t1, t2, t3 = st.tabs(["📤 Convert", "📥 Sample Template", "📖 Documentation"])
+t1, t2, t3, t4 = st.tabs(["📤 Convert", "📥 Sample Template", "🔍 Validate Package", "📖 Documentation"])
 
 # ══════════════════════════════════════════════════════════════════════════════
 # TAB 1 — CONVERT
@@ -207,9 +208,158 @@ with t2:
             use_container_width=True, type="primary")
 
 # ══════════════════════════════════════════════════════════════════════════════
-# TAB 3 — DOCS
+# TAB 3 — VALIDATE
 # ══════════════════════════════════════════════════════════════════════════════
 with t3:
+    st.markdown("### Pre-submission validation")
+    st.markdown(
+        "Upload a generated **xBRL-CSV package (.zip)** to check if it will be "
+        "accepted by the EBA / NCA filing system. Covers **structural**, "
+        "**format**, **dimension** and **business rule** checks per "
+        "EBA Filing Rules v5.8.")
+
+    st.info("ℹ️ This is a pre-flight simulation — it does not submit to EBA/EUCLID. "
+            "No data leaves this application.", icon="ℹ️")
+
+    val_file = st.file_uploader("Upload XBRL-CSV package (.zip)", type=["zip"],
+                                 key="validator_upload")
+    if val_file:
+        st.divider()
+        with st.spinner("Running validation checks…"):
+            validator = EBAPackageValidator()
+            rpt       = validator.validate(val_file.read(), val_file.name)
+
+        # ── Overall verdict ────────────────────────────────────────────────────
+        n_err  = len(rpt.errors)
+        n_warn = len(rpt.warnings)
+        n_info = len(rpt.infos)
+
+        if rpt.acceptable:
+            verdict_color = "#1a7a1a" if n_warn == 0 else "#7a5a00"
+            verdict_icon  = "✅" if n_warn == 0 else "⚠️"
+            verdict_text  = ("LIKELY TO BE ACCEPTED" if n_warn == 0
+                             else "LIKELY ACCEPTED — WITH WARNINGS")
+            verdict_sub   = ("No errors or warnings detected."
+                             if n_warn == 0
+                             else f"{n_warn} warning(s) may require attention.")
+        else:
+            verdict_color = "#7a1a1a"
+            verdict_icon  = "❌"
+            verdict_text  = "WILL BE REJECTED"
+            verdict_sub   = f"{n_err} critical error(s) must be fixed before submission."
+
+        st.markdown(f"""
+        <div style="background:{verdict_color}22;border:2px solid {verdict_color};
+             border-radius:10px;padding:1.2rem 1.5rem;margin-bottom:1rem;text-align:center">
+          <div style="font-size:2rem">{verdict_icon}</div>
+          <div style="font-size:1.3rem;font-weight:700;color:{verdict_color}">{verdict_text}</div>
+          <div style="color:#555;margin-top:.3rem">{verdict_sub}</div>
+        </div>""", unsafe_allow_html=True)
+
+        # ── Score bar ──────────────────────────────────────────────────────────
+        score = rpt.score
+        bar_color = "#1a7a1a" if score>=90 else "#7a5a00" if score>=70 else "#7a1a1a"
+        st.markdown(f"""
+        <div style="margin:.5rem 0 1.2rem">
+          <div style="display:flex;justify-content:space-between;font-size:.85rem;
+               font-weight:600;margin-bottom:4px">
+            <span>Validation Score</span>
+            <span style="color:{bar_color}">{rpt.passed_count}/{rpt.total} checks passed ({score}%)</span>
+          </div>
+          <div style="background:#eee;border-radius:8px;height:14px;overflow:hidden">
+            <div style="background:{bar_color};width:{score}%;height:100%;
+                 border-radius:8px;transition:width .5s"></div>
+          </div>
+        </div>""", unsafe_allow_html=True)
+
+        # ── Summary metrics ────────────────────────────────────────────────────
+        mc1, mc2, mc3, mc4 = st.columns(4)
+        mc1.metric("✅ Passed",   rpt.passed_count)
+        mc2.metric("❌ Errors",   n_err,  delta=f"-{n_err}"  if n_err  else None,
+                   delta_color="inverse")
+        mc3.metric("⚠️ Warnings", n_warn, delta=f"-{n_warn}" if n_warn else None,
+                   delta_color="inverse")
+        mc4.metric("ℹ️ Info",     n_info)
+
+        st.divider()
+
+        # ── Detailed results ───────────────────────────────────────────────────
+        st.markdown("#### Detailed Check Results")
+
+        LEVEL_CFG = {
+            "ERROR":   {"icon":"❌", "color":"#7a1a1a", "bg":"#fff0f0"},
+            "WARNING": {"icon":"⚠️", "color":"#7a5a00", "bg":"#fffbf0"},
+            "INFO":    {"icon":"ℹ️", "color":"#1a4a7a", "bg":"#f0f6ff"},
+        }
+
+        # Group by category
+        categories = {
+            "S": "📦 Structure",
+            "J": "📄 reports.json",
+            "P": "🔑 parameters.csv",
+            "F": "📋 Filing Indicators",
+            "T": "📊 Template CSVs",
+            "C": "💱 Currency Dimensions",
+            "B": "📐 Business Rules",
+        }
+
+        for prefix, cat_label in categories.items():
+            cat_results = [r for r in rpt.results if r.rule_id.startswith(prefix)]
+            if not cat_results:
+                continue
+            cat_pass  = sum(1 for r in cat_results if r.passed)
+            cat_total = len(cat_results)
+            cat_ok    = cat_pass == cat_total
+
+            with st.expander(
+                f"{'✅' if cat_ok else '❌' if any(not r.passed and r.level=='ERROR' for r in cat_results) else '⚠️'} "
+                f"{cat_label} — {cat_pass}/{cat_total}",
+                expanded=not cat_ok):
+
+                for res in cat_results:
+                    cfg = LEVEL_CFG[res.level]
+                    icon = "✅" if res.passed else cfg["icon"]
+                    bg   = "#f0fff0" if res.passed else cfg["bg"]
+                    color = "#1a7a1a" if res.passed else cfg["color"]
+                    detail_html = (f'<div style="font-size:.8rem;color:#666;margin-top:2px">'
+                                   f'💬 {res.detail}</div>' if res.detail else "")
+                    st.markdown(f"""
+                    <div style="background:{bg};border-left:3px solid {color};
+                         padding:.5rem .8rem;border-radius:4px;margin:4px 0">
+                      <span style="font-weight:600;color:{color}">{icon} [{res.rule_id}]</span>
+                      <span style="margin-left:.5rem">{res.message}</span>
+                      {detail_html}
+                    </div>""", unsafe_allow_html=True)
+
+        # ── Fix suggestions ────────────────────────────────────────────────────
+        failed = [r for r in rpt.results if not r.passed and r.level=="ERROR"]
+        if failed:
+            st.divider()
+            st.markdown("#### 🔧 How to fix the errors")
+            FIX_GUIDE = {
+                "S001": "Add META-INF/reports.json to your ZIP. Use the Convert tab to regenerate.",
+                "S002": "Add reports/parameters.csv. Use the Convert tab to regenerate.",
+                "S003": "Add reports/FilingIndicators.csv. Use the Convert tab to regenerate.",
+                "S004": "Remove .xbrl/.xml files — EBA only accepts xBRL-CSV format since March 2026.",
+                "J001": 'Set documentType to exactly "https://xbrl.org/2021/xbrl-csv".',
+                "J002": "Taxonomy URL must point to an EBA framework (eba.europa.eu/eu/fr/xbrl/crr/).",
+                "J004": "Ensure every URL in reports.json has a matching CSV file in the ZIP.",
+                "P001": "Add entityIdentifier row to parameters.csv.",
+                "P003": "Set periodInstant to YYYY-MM-DD format (e.g. 2025-12-31).",
+                "F001": "Add at least one row with reported=true to FilingIndicators.csv.",
+                "T001": "Row IDs must follow r[0-9]{4} format (e.g. r0010, r0020).",
+                "T002": "Column IDs must follow c[0-9]{4} format (e.g. c0010, c0020).",
+                "C001": "Currency dimension values must use ISO4217: prefix (e.g. ISO4217:EUR).",
+            }
+            for res in failed:
+                fix = FIX_GUIDE.get(res.rule_id,
+                    "Use the Convert tab to regenerate the package from a corrected template.")
+                st.markdown(f"- **[{res.rule_id}] {res.message}**  →  {fix}")
+
+# ══════════════════════════════════════════════════════════════════════════════
+# TAB 4 — DOCS
+# ══════════════════════════════════════════════════════════════════════════════
+with t4:
     st.markdown("### Architecture & Multi-Currency Reference")
     da, db = st.columns(2)
     with da:
