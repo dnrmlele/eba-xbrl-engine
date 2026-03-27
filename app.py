@@ -33,11 +33,27 @@ st.markdown("""<style>
   border-radius:4px;font-size:.78rem;font-weight:700;margin:2px}
 .filetree{font-family:monospace;background:#1e1e1e;color:#d4d4d4;padding:1rem;
   border-radius:8px;font-size:.83rem;line-height:1.65}
+.wip-footer{
+  position:fixed;bottom:0;left:0;right:0;z-index:999;
+  background:linear-gradient(90deg,#001055,#003399,#001055);
+  border-top:2px solid #0055CC;
+  padding:.55rem 2rem;
+  display:flex;justify-content:space-between;align-items:center;
+}
+.wip-badge{
+  background:#ff6b00;color:white;padding:2px 10px;
+  border-radius:10px;font-size:.78rem;font-weight:700;
+  letter-spacing:.6px;margin-right:10px;
+  animation:wippulse 2s infinite;
+}
+@keyframes wippulse{0%,100%{opacity:1}50%{opacity:.65}}
+.wip-owner{color:#7ab8ff;font-weight:700}
+.wip-right{color:#5580b0;font-size:.78rem;text-align:right}
 </style>""", unsafe_allow_html=True)
 
 st.markdown("""<div class="eba-header">
   <h1>🏦 EBA XBRL-CSV Reporting Engine</h1>
-  <p>Multi-currency · C72–C76 LCR · Framework 4.2 · EBA Filing Rules v5.8</p>
+  <p>LCR Delegated Act · C72–C76 · Framework 4.2 · eba_met concept IDs · EBA Filing Rules v5.8</p>
 </div>""", unsafe_allow_html=True)
 
 # ── SIDEBAR ───────────────────────────────────────────────────────────────────
