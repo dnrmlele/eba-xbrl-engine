@@ -17,7 +17,7 @@ _LCR_RE = re.compile(
 
 def _template_key_from_code(code: str, sub: str) -> str:
     """Convert 'C 72.00' + 'a' → 'C_72.00.a'"""
-    return code.replace(" ", "_").replace(".", "_") + f".{sub}"
+    return code.replace(" ", "_") + f".{sub}"
 
 
 class EBAExcelReader:
