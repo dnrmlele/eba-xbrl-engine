@@ -213,7 +213,12 @@ with t2:
 
     if st.button("🔨 Generate Multi-Currency Template", type="primary"):
         with st.spinner(f"Building workbook with {selected}…"):
-            buf   = create_sample_workbook(currencies=selected)
+            buf = create_sample_workbook(
+    currencies=selected,
+    entity_lei=entity_id,
+    ref_date=ref_date.isoformat(),
+    base_currency=base_ccy,
+)
             xb    = buf.getvalue()
         ccy_str = "_".join(selected)
         st.success(f"✅ {len(selected)*5} sheets created!")
