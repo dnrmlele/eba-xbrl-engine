@@ -400,7 +400,7 @@ Any currency ≥ 5% of total liabilities must be reported separately
     rows_doc = []
     for key, t in LCR_TEMPLATES.items():
         for ccy in ["EUR","USD","GBP"]:
-            sname = t["sheet_name"] if ccy=="EUR" else f"{t['sheet_name']} {ccy}"
+            sname = t["template_code"] if ccy=="EUR" else f"{t['template_code']} {ccy}"
             csv_f = f"{key}_{ccy}.csv"
             dim   = f"eba_LCI:CUS = ISO4217:{ccy}"
             rows_doc.append({"Template": t["template_code"], "Currency": ccy,
