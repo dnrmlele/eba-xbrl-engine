@@ -1,4 +1,3 @@
-
 """Creates sample EBA-style Excel templates for C72-C76 with multi-currency."""
 import io, random
 import openpyxl
@@ -20,7 +19,6 @@ RA = Alignment(horizontal="right",  vertical="center")
 TB = Border(left=Side(style="thin"), right=Side(style="thin"),
             top=Side(style="thin"),  bottom=Side(style="thin"))
 
-# Scaling factors per currency (relative to EUR notional amounts)
 CCY_SCALE = {"EUR": 1.0, "USD": 1.08, "GBP": 0.86, "CHF": 0.97,
              "JPY": 163.0, "SEK": 11.5, "NOK": 11.8}
 
@@ -28,6 +26,9 @@ def create_sample_workbook(currencies: list = None) -> io.BytesIO:
     """
     Create sample EBA workbook with sheets per template × currency.
     Sheet naming: "C 72.00" (EUR), "C 72.00 USD", "C 72.00 GBP", …
+    
+    For EUR: only .a/.b sheets (is_ccy_sheet=False)
+    For other currencies: only .w/.y sheets (is_ccy_sheet=True)
     """
     if currencies is None:
         currencies = ["EUR", "USD", "GBP"]
@@ -38,11 +39,27 @@ def create_sample_workbook(currencies: list = None) -> io.BytesIO:
     for currency in currencies:
         scale = CCY_SCALE.get(currency, 1.0)
         seed  = abs(hash(currency)) % 1000
+        is_foreign = currency != currencies[0]  # first currency = base (EUR)
+
         for key, tdef in LCR_TEMPLATES.items():
-            sheet_title = (tdef["template_code"] if currency == "EUR"
-               else f"{tdef['template_code']} {currency}")
+            is_ccy_sheet = tdef.get("is_ccy_sheet", False)
+
+            # FIX: EUR → only base sheets (.a/.b), foreign ccy → only ccy sheets (.w/.y)
+            if currency == currencies[0] and is_ccy_sheet:
+                continue
+            if currency != currencies[0] and not is_ccy_sheet:
+                continue
+
+            sheet_title = (tdef["template_code"] if currency == currencies[0]
+                           else f"{tdef['template_code']} {currency}")
+
+            # Skip if sheet already exists (e.g. C 76.00 .a and .b — keep first)
+            if sheet_title in wb.sheetnames:
+                continue
+
             ws = wb.create_sheet(title=sheet_title)
             _build_sheet(ws, tdef, currency, scale, seed)
+
     buf = io.BytesIO()
     wb.save(buf)
     buf.seek(0)
