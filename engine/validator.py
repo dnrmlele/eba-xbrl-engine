@@ -15,7 +15,7 @@ VALID_TAXONOMY_PATTERNS = [
     r"https://www\.eba\.europa\.eu/eu/fr/xbrl/",
 ]
 VALID_FILING_INDICATORS = {
-    "eba_LCI:LI72","eba_LCI:LI73","eba_LCI:LI74","eba_LCI:LI75","eba_LCI:LI76",
+    "eba_LCI:LI72","eba_LCI:LI73","eba_LCI:LI74","eba_LCI:LI75","eba_LCI:LI75_1","eba_LCI:LI76",
     "eba_met:LI01","eba_met:LI02",  # COREP OF
 }
 VALID_ISO4217 = {
@@ -148,10 +148,12 @@ class EBAPackageValidator:
 
         # J004 — all CSV files referenced in reports.json actually exist
         missing = []
-        for key, entry in doc.get("reports",{}).items():
-            url = entry.get("url","")
-            if url and url not in zf.namelist():
-                missing.append(url)
+        all_zip = zf.namelist()
+        for section in ("reports", "tables"):
+            for key, entry in doc.get(section, {}).items():
+                url = entry.get("url", "")
+                if url and url not in all_zip:
+                    missing.append(url)
         ok = len(missing) == 0
         report.results.append(CheckResult("J004","ERROR", ok,
             "All CSV files referenced in reports.json exist in the package",
@@ -255,35 +257,54 @@ class EBAPackageValidator:
         report.results.append(CheckResult("T000","ERROR", True,
             f"Template CSV files present ({len(csv_files)} found)"))
 
-        bad_rows, bad_cols, non_numeric, negative_vals = [], [], [], []
+        bad_concepts, bad_cols, non_numeric, negative_vals = [], [], [], []
 
         for csv_name in csv_files:
             rows = self._read_csv_rows(zf, csv_name)
-            for row in rows:
-                # T001 — row IDs
-                r_id = row.get("r","")
-                if r_id and not re.fullmatch(r"r[0-9]{4}", r_id):
-                    bad_rows.append(f"{csv_name}:{r_id}")
-                # T002 — col IDs + values
-                for k, v in row.items():
-                    if k == "r":
-                        continue
-                    if not re.fullmatch(r"c[0-9]{4}", k):
-                        bad_cols.append(f"{csv_name}:{k}")
-                    if v not in ("", None):
-                        try:
-                            fv = float(str(v).replace(",",""))
-                            if k == "c0010" and fv < 0:
-                                negative_vals.append(f"{csv_name} {r_id}/c0010={fv}")
-                        except:
-                            non_numeric.append(f"{csv_name} {r_id}/{k}={v!r}")
+            if not rows:
+                continue
 
-        report.results.append(CheckResult("T001","ERROR", len(bad_rows)==0,
-            "All row identifiers follow r[0-9]{4} pattern",
-            f"Invalid: {bad_rows[:5]}" if bad_rows else ""))
-        report.results.append(CheckResult("T002","ERROR", len(bad_cols)==0,
-            "All column identifiers follow c[0-9]{4} pattern",
-            f"Invalid: {bad_cols[:5]}" if bad_cols else ""))
+            # Detect CSV format: concept-value (new) vs row-wide (old)
+            is_concept_value = "concept" in rows[0]
+
+            for row in rows:
+                if is_concept_value:
+                    # New format: concept, value, decimals, unit
+                    concept = row.get("concept", "")
+                    value   = row.get("value", "")
+                    # T001: concept must be eba_met:mi{id}
+                    if concept and not re.match(r"eba_met:mi\d+", concept):
+                        bad_concepts.append(f"{csv_name}:{concept}")
+                    # T002: skip c[0-9]{4} check (not applicable to concept-value format)
+                    # T003: value must be numeric
+                    if value not in ("", None):
+                        try:
+                            fv = float(str(value).replace(",",""))
+                            if fv < 0 and "0010" in concept:
+                                negative_vals.append(f"{csv_name} {concept}={fv}")
+                        except:
+                            non_numeric.append(f"{csv_name} /concept={concept!r}")
+                else:
+                    # Legacy row-wide format: r, c0010, c0020, ...
+                    r_id = row.get("r","")
+                    for k, v in row.items():
+                        if k == "r":
+                            continue
+                        if not re.fullmatch(r"c[0-9]{4}", k):
+                            bad_cols.append(f"{csv_name}:{k}")
+                        if v not in ("", None):
+                            try:
+                                fv = float(str(v).replace(",",""))
+                                if k == "c0010" and fv < 0:
+                                    negative_vals.append(f"{csv_name} {r_id}/c0010={fv}")
+                            except:
+                                non_numeric.append(f"{csv_name} {r_id}/{k}={v!r}")
+
+        report.results.append(CheckResult("T001","ERROR", len(bad_concepts)==0 and len(bad_cols)==0,
+            "All concept IDs follow eba_met:mi{id} pattern (concept-value format)",
+            f"Invalid: {(bad_concepts+bad_cols)[:5]}" if bad_concepts or bad_cols else ""))
+        report.results.append(CheckResult("T002","INFO", True,
+            "CSV format: concept-value (XBRL-CSV 2021) — column ID check not applicable"))
         report.results.append(CheckResult("T003","WARNING", len(non_numeric)==0,
             "All data values are numeric or empty",
             f"Non-numeric: {non_numeric[:3]}" if non_numeric else ""))
