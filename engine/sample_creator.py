@@ -39,8 +39,8 @@ def create_sample_workbook(currencies: list = None) -> io.BytesIO:
         scale = CCY_SCALE.get(currency, 1.0)
         seed  = abs(hash(currency)) % 1000
         for key, tdef in LCR_TEMPLATES.items():
-            sheet_title = (tdef["sheet_name"] if currency == "EUR"
-                           else f"{tdef['sheet_name']} {currency}")
+            sheet_title = (tdef["template_code"] if currency == "EUR"
+               else f"{tdef['template_code']} {currency}")
             ws = wb.create_sheet(title=sheet_title)
             _build_sheet(ws, tdef, currency, scale, seed)
     buf = io.BytesIO()
