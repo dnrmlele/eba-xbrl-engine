@@ -407,3 +407,20 @@ Any currency ≥ 5% of total liabilities must be reported separately
                              "Excel Sheet": sname, "CSV File": csv_f,
                              "XBRL Dimension": dim})
     st.dataframe(pd.DataFrame(rows_doc), use_container_width=True, hide_index=True)
+
+  # ── WIP FOOTER ────────────────────────────────────────────────────────────────
+
+st.markdown("""
+<div class="wip-footer">
+  <div style="display:flex;align-items:center;gap:8px">
+    <span class="wip-badge">⚙️ WORK IN PROGRESS</span>
+    <span style="color:#b8d0ff;font-size:.85rem">
+      EBA XBRL-CSV Engine &nbsp;·&nbsp;
+      Owner: <span class="wip-owner">Clément Denorme</span>
+    </span>
+  </div>
+  <div class="wip-right">
+    COREP 4.2 · LCR DA · C72–C76 · eba_met concept IDs · 5,112 mappings
+  </div>
+</div>
+""", unsafe_allow_html=True)
