@@ -68,8 +68,7 @@ def _write_template_sheet(ws, tpl_code: str, rows: list, cols: list,
     ws.column_dimensions["A"].width = 50
 
     for i, (col_code, col_label) in enumerate(cols, start=2):
-        c = ws.cell(h_row, i, f"{col_code}
-{col_label}")
+        c = ws.cell(h_row, i, f"{col_code}\n{col_label}")
         c.fill = HEADER_FILL
         c.font = HEADER_FONT
         c.alignment = Alignment(wrap_text=True, horizontal="center", vertical="center")

@@ -359,9 +359,9 @@ with tab_eba:
                 cat_total = len(cat_results)
                 cat_ok    = cat_pass == cat_total
 
+                status_icon = "\u2705" if cat_ok else "\u274c" if any(not r.passed and r.level=='ERROR' for r in cat_results) else "\u26a0\ufe0f"
                 with st.expander(
-                    f"{'\u2705' if cat_ok else '\u274c' if any(not r.passed and r.level=='ERROR' for r in cat_results) else '\u26a0\ufe0f'} "
-                    f"{cat_label} \u2014 {cat_pass}/{cat_total}",
+                    f"{status_icon} {cat_label} \u2014 {cat_pass}/{cat_total}",
                     expanded=not cat_ok):
 
                     for res in cat_results:
