@@ -14,6 +14,7 @@ from engine.definitions.ipr_templates import (
     TEMPLATE_FILE_NAMES,
     INDICATOR_MAP,
     EURO_AREA_FILED,
+    IPR_TEMPLATES,
 )
 
 # ── Styles ────────────────────────────────────────────────────────────────────
@@ -95,6 +96,8 @@ def _write_template_sheet(ws, tpl_code: str, rows: list, cols: list,
         ws.column_dimensions[get_column_letter(i)].width = 22
     ws.row_dimensions[h_row].height = 40
 
+    cell_map = IPR_TEMPLATES.get(tpl_code, {}).get("cell_map", {})
+
     # ── Data rows ────────────────────────────────────────────────────────────
     for d_row_idx, (row_code, row_label) in enumerate(rows, start=h_row + 1):
         # Determine whether this row is a visual section header or a fillable data row.
@@ -131,12 +134,14 @@ def _write_template_sheet(ws, tpl_code: str, rows: list, cols: list,
             label_cell.alignment = Alignment(indent=1 if is_total else 3, vertical="center")
 
         # Data cells
-        for c_idx in range(len(cols)):
-            inp = ws.cell(d_row_idx, c_idx + 2)
-            if not is_section:
+        for c_idx, (col_code, _) in enumerate(cols, start=2):
+            inp = ws.cell(d_row_idx, c_idx)
+            if not is_section and (row_code, col_code) in cell_map:
                 inp.fill = INPUT_FILL
                 inp.alignment = Alignment(horizontal="right", vertical="center")
                 inp.number_format = "#,##0"
+            else:
+                inp.fill = DISABLED_FILL
 
     _apply_border(ws, h_row, h_row + len(rows), 1, len(cols) + 1)
     ws.freeze_panes = ws.cell(h_row + 1, 2)
