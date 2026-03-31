@@ -61,36 +61,120 @@ def _write_template_sheet(ws, tpl_code: str, rows: list, cols: list,
         ws.column_dimensions["A"].width = 60
         return
 
+    # ── Column groupings (hierarchical headers) ───────────────────────────────
+    # Define visual groupings for better layout (template-specific)
+    col_groupings = _get_column_groupings(tpl_code, cols)
+
+    # ── Row 2: Column group headers (if any) ──────────────────────────────────
+    if col_groupings:
+        group_row = 2
+        col_idx = 2
+        for group_label, group_cols in col_groupings:
+            span = len(group_cols)
+            if span > 1:
+                ws.merge_cells(start_row=group_row, start_column=col_idx,
+                               end_row=group_row, end_column=col_idx + span - 1)
+            cell = ws.cell(group_row, col_idx, group_label)
+            cell.fill = SUBHEAD_FILL
+            cell.font = SUBHEAD_FONT
+            cell.alignment = Alignment(wrap_text=True, horizontal="center", vertical="center")
+            col_idx += span
+        ws.row_dimensions[group_row].height = 24
+
     # ── Row 3: column headers ────────────────────────────────────────────────
     h_row = 3
-    ws.cell(h_row, 1, "Row description").fill = HEADER_FILL
+    ws.cell(h_row, 1, "Row Code & Description").fill = HEADER_FILL
     ws.cell(h_row, 1).font = HEADER_FONT
-    ws.column_dimensions["A"].width = 50
+    ws.column_dimensions["A"].width = 55
 
     for i, (col_code, col_label) in enumerate(cols, start=2):
         c = ws.cell(h_row, i, f"{col_code}\n{col_label}")
         c.fill = HEADER_FILL
         c.font = HEADER_FONT
         c.alignment = Alignment(wrap_text=True, horizontal="center", vertical="center")
-        ws.column_dimensions[get_column_letter(i)].width = 26
-    ws.row_dimensions[h_row].height = 36
+        ws.column_dimensions[get_column_letter(i)].width = 22
+    ws.row_dimensions[h_row].height = 40
 
     # ── Data rows ────────────────────────────────────────────────────────────
     for d_row_idx, (row_code, row_label) in enumerate(rows, start=h_row + 1):
-        is_total = not row_label.startswith(" ")
-        label_cell = ws.cell(d_row_idx, 1, f"{row_code}    {row_label}")
-        label_cell.fill = ROW_FILL if is_total else PatternFill("solid", fgColor="EAF3FB")
-        label_cell.font = Font(bold=is_total, size=10)
-        label_cell.alignment = Alignment(indent=0 if is_total else 2)
+        # Check if this is a section header (contains "Breakdown by")
+        is_section = "Breakdown by" in row_label or row_label.isupper()
+        is_total = row_code == "0010"
+        
+        # Format the label nicely
+        if is_section:
+            # Extract section title (remove row code prefix if present)
+            if " — " in row_label:
+                section_title = row_label.split(" — ", 1)[1].strip()
+            else:
+                section_title = row_label.replace("0045 ", "").replace("0065 ", "").replace("0085 ", "").replace("0015 ", "")
+            label_text = f"{row_code}  {section_title}"
+        else:
+            label_text = f"{row_code}  {row_label}".rstrip()
+        
+        label_cell = ws.cell(d_row_idx, 1, label_text)
+        
+        if is_section:
+            # Section header styling
+            label_cell.fill = PatternFill("solid", fgColor="D3D3D3")
+            label_cell.font = Font(bold=True, size=11, color="333333")
+            ws.merge_cells(start_row=d_row_idx, start_column=1,
+                           end_row=d_row_idx, end_column=len(cols) + 1)
+            label_cell.alignment = Alignment(indent=1, vertical="center")
+            ws.row_dimensions[d_row_idx].height = 18
+        else:
+            # Regular row styling
+            label_cell.fill = ROW_FILL if is_total else PatternFill("solid", fgColor="EAF3FB")
+            label_cell.font = Font(bold=is_total, size=10)
+            label_cell.alignment = Alignment(indent=1 if is_total else 3, vertical="center")
 
+        # Data cells
         for c_idx in range(len(cols)):
             inp = ws.cell(d_row_idx, c_idx + 2)
-            inp.fill = INPUT_FILL
-            inp.alignment = Alignment(horizontal="right")
-            inp.number_format = "#,##0"
+            if not is_section:
+                inp.fill = INPUT_FILL
+                inp.alignment = Alignment(horizontal="right", vertical="center")
+                inp.number_format = "#,##0"
 
     _apply_border(ws, h_row, h_row + len(rows), 1, len(cols) + 1)
     ws.freeze_panes = ws.cell(h_row + 1, 2)
+
+
+def _get_column_groupings(tpl_code: str, cols: list):
+    """
+    Returns hierarchical column groupings for better visual organization.
+    Format: [(group_label, [(col_code, col_label), ...]), ...]
+    """
+    col_codes = [code for code, _ in cols]
+    
+    # S 01.01 & S 01.02: Credit transfers sent vs received
+    if tpl_code in {"S 01.01", "S 01.02"}:
+        sent_cols = [(c, l) for c, l in cols if c in {"0010", "0020", "0030", "0040"}]
+        recv_cols = [(c, l) for c, l in cols if c in {"0050", "0060", "0070", "0080"}]
+        if sent_cols and recv_cols:
+            return [
+                ("Credit transfers sent", sent_cols),
+                ("Credit transfers received", recv_cols),
+            ]
+    
+    # S 02.01 & S 02.02: Charges sent vs received
+    elif tpl_code in {"S 02.01", "S 02.02"}:
+        sent_cols = [(c, l) for c, l in cols if c in {"0010", "0020"}]
+        recv_cols = [(c, l) for c, l in cols if c in {"0030", "0040"}]
+        if sent_cols and recv_cols:
+            return [
+                ("Charges for credit transfers sent", sent_cols),
+                ("Charges for credit transfers received", recv_cols),
+            ]
+    
+    # S 03.00: Multiple charge types
+    elif tpl_code == "S 03.00":
+        if len(cols) >= 2:
+            return [
+                ("Payment accounts & charges", cols),
+            ]
+    
+    return None
 
 
 def create_ipr_sample(entity_lei: str, years: list, is_euro_area: bool = True) -> bytes:
