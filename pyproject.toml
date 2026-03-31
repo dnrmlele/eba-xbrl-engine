@@ -1,0 +1,33 @@
+[project]
+name = "eba-xbrl-engine"
+version = "0.1.0"
+description = "EBA xBRL-CSV generator for LCR and CSSF SEPA_IPR reporting"
+readme = "README.md"
+authors = [ { name = "dnrmlele", email = "noreply@example.com" } ]
+license = { text = "MIT" }
+dependencies = [
+    "streamlit>=1.0",
+    "pandas>=1.5",
+    "openpyxl>=3.1",
+    "xlrd>=2.0"
+]
+
+[project.urls]
+"Homepage" = "https://github.com/dnrmlele/eba-xbrl-engine"
+"Repository" = "https://github.com/dnrmlele/eba-xbrl-engine"
+
+[build-system]
+requires = ["setuptools>=65.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["src", "."]
+include = ["eba_xbrl_engine", "engine"]
+
+[project.scripts]
+eba-xbrl = "eba_xbrl_engine.app:main"
+
+[tool.pytest.ini_options]
+minversion = "7.0"
+testpaths = ["tests"]
+addopts = "-q"
