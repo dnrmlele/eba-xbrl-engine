@@ -97,25 +97,28 @@ def _write_template_sheet(ws, tpl_code: str, rows: list, cols: list,
 
     # ── Data rows ────────────────────────────────────────────────────────────
     for d_row_idx, (row_code, row_label) in enumerate(rows, start=h_row + 1):
-        # Check if this is a section header (contains "Breakdown by")
-        is_section = "Breakdown by" in row_label or row_label.isupper()
+        # Determine whether this row is a visual section header or a fillable data row.
+        row_label_text = row_label.strip()
         is_total = row_code == "0010"
-        
-        # Format the label nicely
-        if is_section:
-            # Extract section title (remove row code prefix if present)
-            if " — " in row_label:
-                section_title = row_label.split(" — ", 1)[1].strip()
+
+        is_section = False
+        if "Breakdown by" in row_label_text:
+            if " — " in row_label_text:
+                # Data row in a breakdown section, keep value part only.
+                _, row_label_text = row_label_text.split(" — ", 1)
+                row_label_text = row_label_text.strip()
             else:
-                section_title = row_label.replace("0045 ", "").replace("0065 ", "").replace("0085 ", "").replace("0015 ", "")
-            label_text = f"{row_code}  {section_title}"
-        else:
-            label_text = f"{row_code}  {row_label}".rstrip()
-        
-        label_cell = ws.cell(d_row_idx, 1, label_text)
-        
+                # Pure section header row.
+                is_section = True
+
         if is_section:
-            # Section header styling
+            label_text = row_label_text
+        else:
+            label_text = f"{row_code}  {row_label_text}".rstrip()
+
+        label_cell = ws.cell(d_row_idx, 1, label_text)
+
+        if is_section:
             label_cell.fill = PatternFill("solid", fgColor="D3D3D3")
             label_cell.font = Font(bold=True, size=11, color="333333")
             ws.merge_cells(start_row=d_row_idx, start_column=1,
@@ -123,7 +126,6 @@ def _write_template_sheet(ws, tpl_code: str, rows: list, cols: list,
             label_cell.alignment = Alignment(indent=1, vertical="center")
             ws.row_dimensions[d_row_idx].height = 18
         else:
-            # Regular row styling
             label_cell.fill = ROW_FILL if is_total else PatternFill("solid", fgColor="EAF3FB")
             label_cell.font = Font(bold=is_total, size=10)
             label_cell.alignment = Alignment(indent=1 if is_total else 3, vertical="center")
