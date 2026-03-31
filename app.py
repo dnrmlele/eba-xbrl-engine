@@ -522,22 +522,6 @@ with tab_cssf:
             st.markdown("Generates a styled Excel workbook with one data-entry sheet "
                         "per reference year \u00d7 template. Yellow cells = fill in.")
 
-            uploaded_template = st.file_uploader(
-                "Upload your own SEPA_IPR Excel template (optional, will be used as-is)",
-                type=["xlsx"], key="ipr_template_upload"
-            )
-            if uploaded_template:
-                if st.button("\U0001f4e5 Use uploaded template and download directly", key="ipr_upload_dl_btn"):
-                    sample_bytes = uploaded_template.read()
-                    st.success("\u2705 Uploaded template is ready for download as-is")
-                    st.download_button(
-                        "\u2b07\ufe0f Download uploaded IPR template",
-                        data=sample_bytes,
-                        file_name=f"IPR_Template_{entity_id}.xlsx",
-                        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                        key="ipr_uploaded_template_dl",
-                        use_container_width=True,
-                    )
 
             if st.button("\U0001f528 Generate IPR Excel template", key="ipr_sample_btn"):
                 if not entity_id or len(entity_id) != 20:
