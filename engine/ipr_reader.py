@@ -9,8 +9,8 @@ import openpyxl
 
 from engine.definitions.ipr_templates import TEMPLATE_STRUCTURE
 
-# Sheet name pattern: "2022_S_01_01"  "2025_S_04_00"
-SHEET_RE = re.compile(r"^(\d{4})_(S_\d{2}_(?:\d{2}|\d{2}))$")
+# Sheet name pattern: "2022_S_01_01"  "2025_S_04.00"
+SHEET_RE = re.compile(r"^(\d{4})_(S_\d{2}[_\.]\d{2})$")
 
 
 def _sheet_key(sheet_name: str):
@@ -19,8 +19,8 @@ def _sheet_key(sheet_name: str):
     if not m:
         return None, None
     year = int(m.group(1))
-    # "S_01_01" → "S 01.01",  "S_03_00" → "S 03.00"
-    raw = m.group(2)           # e.g. "S_01_01"
+    # "S_01_01" or "S_01.01" → "S 01.01"
+    raw = m.group(2).replace('.', '_')  # e.g. "S_01_01" or "S_01.01"
     parts = raw.split("_")     # ["S", "01", "01"]
     tpl = f"{parts[0]} {parts[1]}.{parts[2]}"
     if tpl not in TEMPLATE_STRUCTURE:
